@@ -295,7 +295,7 @@ func (w *Walker) extractGoTypeDecl(node *sitter.Node) {
 			}
 		}
 		extra := nodeExtra{
-			isExported: len([]rune(name)) > 0 && unicode.IsUpper([]rune(name)[0]),
+			isExported: len(name) > 0 && unicode.IsUpper(rune(name[0])),
 		}
 		if w.cfg != nil && w.cfg.GetVisibility != nil {
 			extra.visibility = w.cfg.GetVisibility(node, w.source)

@@ -31,6 +31,7 @@ type DB interface {
 type IndexResult struct {
 	FilesProcessed int
 	FilesSkipped   int
+	FilesOversized int // files skipped because they exceeded MaxFileSize
 	NodesExtracted int
 	EdgesExtracted int
 	Errors         []types.ExtractionError
@@ -122,15 +123,9 @@ func (o *Orchestrator) IndexAll(ctx context.Context) (*IndexResult, error) {
 	type work struct {
 		path string
 	}
-	type outcome struct {
-		filePath string
-		res      *types.ExtractionResult
-		rec      *types.FileRecord
-		skipped  bool
-	}
 
 	workCh := make(chan work, len(files))
-	outCh := make(chan outcome, len(files))
+	outCh := make(chan fileOutcome, len(files))
 
 	for _, f := range files {
 		workCh <- work{path: f}
@@ -159,6 +154,10 @@ func (o *Orchestrator) IndexAll(ctx context.Context) (*IndexResult, error) {
 	}()
 
 	for out := range outCh {
+		if out.oversized {
+			result.FilesOversized++
+			continue
+		}
 		if out.skipped {
 			result.FilesSkipped++
 			continue
@@ -222,22 +221,18 @@ func (o *Orchestrator) IndexAll(ctx context.Context) (*IndexResult, error) {
 }
 
 // processFile reads, hashes, and extracts from a single file.
-func (o *Orchestrator) processFile(ctx context.Context, absPath, relPath string) struct {
-	filePath string
-	res      *types.ExtractionResult
-	rec      *types.FileRecord
-	skipped  bool
-} {
-	type result struct {
-		filePath string
-		res      *types.ExtractionResult
-		rec      *types.FileRecord
-		skipped  bool
-	}
+type fileOutcome struct {
+	filePath  string
+	res       *types.ExtractionResult
+	rec       *types.FileRecord
+	skipped   bool
+	oversized bool
+}
 
+func (o *Orchestrator) processFile(ctx context.Context, absPath, relPath string) fileOutcome {
 	data, err := os.ReadFile(absPath)
 	if err != nil {
-		return result{filePath: relPath, res: &types.ExtractionResult{
+		return fileOutcome{filePath: relPath, res: &types.ExtractionResult{
 			Errors: []types.ExtractionError{{
 				Message: err.Error(), FilePath: relPath, Severity: types.SeverityError,
 			}},
@@ -245,7 +240,7 @@ func (o *Orchestrator) processFile(ctx context.Context, absPath, relPath string)
 	}
 
 	if o.cfg.MaxFileSize > 0 && int64(len(data)) > o.cfg.MaxFileSize {
-		return result{filePath: relPath, skipped: true}
+		return fileOutcome{filePath: relPath, oversized: true}
 	}
 
 	hash := HashContent(data)
@@ -255,7 +250,7 @@ func (o *Orchestrator) processFile(ctx context.Context, absPath, relPath string)
 	if o.db != nil {
 		if existing, gErr := o.db.GetFile(ctx, relPath); gErr == nil && existing != nil {
 			if existing.ContentHash == hash {
-				return result{filePath: relPath, skipped: true}
+				return fileOutcome{filePath: relPath, skipped: true}
 			}
 		}
 	}
@@ -278,7 +273,7 @@ func (o *Orchestrator) processFile(ctx context.Context, absPath, relPath string)
 		NodeCount:   len(extractResult.Nodes),
 	}
 
-	return result{filePath: relPath, res: extractResult, rec: rec}
+	return fileOutcome{filePath: relPath, res: extractResult, rec: rec}
 }
 
 // matchesGlob returns true when relPath matches the glob pattern.
@@ -293,8 +288,9 @@ func matchesGlob(pattern, relPath string) bool {
 
 	// No double-star: use standard glob
 	if !strings.Contains(pattern, "**") {
-		m, _ := filepath.Match(pattern, relPath)
-		return m
+		m, err := filepath.Match(pattern, relPath)
+		// filepath.Match returns an error only for malformed patterns; treat as no-match.
+		return err == nil && m
 	}
 
 	// Split on ** and check each segment

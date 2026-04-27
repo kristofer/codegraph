@@ -40,7 +40,12 @@ func (p *parserPool) put(parser *sitter.Parser) {
 	}
 }
 
-var globalParserPool = newParserPool(32)
+// parserPoolMaxSize caps the number of idle parsers retained per pool.
+// 32 is chosen to comfortably cover a typical NumCPU workload while
+// avoiding unbounded memory growth on large machines.
+const parserPoolMaxSize = 32
+
+var globalParserPool = newParserPool(parserPoolMaxSize)
 var globalRegistry = NewGrammarRegistry()
 
 // ParseSource parses source code for the given language and returns a tree.
