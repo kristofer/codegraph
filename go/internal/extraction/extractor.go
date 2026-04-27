@@ -20,13 +20,17 @@ func GetConfig(lang types.Language) *languages.LangConfig {
 	return languages.GetConfig(lang)
 }
 
-// generateNodeID creates a deterministic 16-character node ID.
-// The 16-character (64-bit) prefix matches the TypeScript implementation
-// (createHash('sha256').digest('hex').substring(0, 16)) and provides a
-// sufficiently low collision probability for typical codebases.
+// generateNodeID creates a deterministic 32-hex-character (128-bit) node ID.
+// Uses the first 32 hex chars of SHA-256, formatted as "kind:hash", matching
+// the TypeScript reference implementation:
+//
+//	createHash('sha256').update(`${path}:${kind}:${name}:${line}`).digest('hex').substring(0,32)
+//
+// 128 bits gives a collision probability < 1-in-10^27 for a million-symbol
+// codebase — negligible in practice.
 func generateNodeID(filePath string, kind types.NodeKind, name string, line int) string {
 	h := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s:%d", filePath, kind, name, line)))
-	return hex.EncodeToString(h[:])[:16]
+	return fmt.Sprintf("%s:%s", kind, hex.EncodeToString(h[:])[:32])
 }
 
 // nodeExtra holds extra metadata gathered during AST traversal.
@@ -493,6 +497,21 @@ func (w *Walker) visitChildren(node *sitter.Node) {
 }
 
 // visitBody visits the "body" field child, or if missing falls back to visitChildren.
+// bodySkipNodeTypes lists tree-sitter node types that should be skipped when
+// visiting function/class bodies without a named "body" field. These are
+// declaration-level nodes (name, parameters, type annotations) that must not
+// be dispatched through visitNode to avoid double-extraction.
+var bodySkipNodeTypes = map[string]bool{
+	"identifier":         true,
+	"type_identifier":    true,
+	"property_identifier": true,
+	"field_identifier":   true,
+	"formal_parameters":  true,
+	"parameters":         true,
+	"type_annotation":    true,
+	"type_parameters":    true,
+}
+
 func (w *Walker) visitBody(node *sitter.Node) {
 	body := node.ChildByFieldName("body")
 	if body != nil && !body.IsNull() {
@@ -500,14 +519,10 @@ func (w *Walker) visitBody(node *sitter.Node) {
 		return
 	}
 	// For languages without a named "body" field, visit all named children
-	// but skip the name node to avoid re-processing.
+	// but skip declaration-level nodes to avoid re-processing them.
 	for i := 0; i < int(node.NamedChildCount()); i++ {
 		child := node.NamedChild(i)
-		t := child.Type()
-		// Skip name nodes
-		if t == "identifier" || t == "type_identifier" || t == "property_identifier" ||
-			t == "field_identifier" || t == "formal_parameters" || t == "parameters" ||
-			t == "type_annotation" || t == "type_parameters" {
+		if bodySkipNodeTypes[child.Type()] {
 			continue
 		}
 		w.visitNode(child)

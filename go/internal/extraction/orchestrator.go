@@ -392,3 +392,121 @@ func matchDoublestar(pattern, path string) bool {
 	}
 	return matchDoublestar(pTail, pathTail)
 }
+
+// SyncResult summarises an incremental sync run.
+type SyncResult struct {
+	FilesProcessed int
+	FilesSkipped   int
+	FilesOversized int
+	FilesRemoved   int
+	NodesExtracted int
+	EdgesExtracted int
+	Errors         []types.ExtractionError
+	DurationMs     float64
+}
+
+// SyncFiles re-indexes only the given set of changed or added files.
+// Paths should be relative to cfg.RootDir.  Deleted files should be
+// handled by the caller before invoking SyncFiles.
+func (o *Orchestrator) SyncFiles(ctx context.Context, changedFiles []string) (*SyncResult, error) {
+	start := time.Now()
+	result := &SyncResult{}
+
+	rootDir := o.cfg.RootDir
+
+	type work struct{ path string }
+	workCh := make(chan work, len(changedFiles))
+	outCh := make(chan fileOutcome, len(changedFiles))
+
+	for _, f := range changedFiles {
+		workCh <- work{path: f}
+	}
+	close(workCh)
+
+	var wg sync.WaitGroup
+	for i := 0; i < o.workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for w := range workCh {
+				if ctx.Err() != nil {
+					return
+				}
+				absPath := filepath.Join(rootDir, w.path)
+				out := o.processFile(ctx, absPath, w.path)
+				outCh <- out
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(outCh)
+	}()
+
+	for out := range outCh {
+		if out.oversized {
+			result.FilesOversized++
+			continue
+		}
+		if out.skipped {
+			result.FilesSkipped++
+			continue
+		}
+		result.FilesProcessed++
+		if out.rec != nil && o.db != nil {
+			if uErr := o.db.UpsertFile(ctx, out.rec); uErr != nil {
+				result.Errors = append(result.Errors, types.ExtractionError{
+					Message:  uErr.Error(),
+					FilePath: out.filePath,
+					Severity: types.SeverityError,
+				})
+			}
+		}
+		if out.res != nil {
+			result.Errors = append(result.Errors, out.res.Errors...)
+			result.NodesExtracted += len(out.res.Nodes)
+			result.EdgesExtracted += len(out.res.Edges)
+			if o.db != nil {
+				if delErr := o.db.DeleteNodesForFile(ctx, out.filePath); delErr != nil {
+					result.Errors = append(result.Errors, types.ExtractionError{
+						Message:  delErr.Error(),
+						FilePath: out.filePath,
+						Severity: types.SeverityError,
+					})
+				} else {
+					for _, n := range out.res.Nodes {
+						if uErr := o.db.UpsertNode(ctx, n); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
+					}
+					for _, e := range out.res.Edges {
+						if uErr := o.db.UpsertEdge(ctx, e); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
+					}
+					for _, ref := range out.res.UnresolvedReferences {
+						if uErr := o.db.UpsertUnresolvedRef(ctx, ref); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	result.DurationMs = float64(time.Since(start).Microseconds()) / 1000.0
+	return result, nil
+}

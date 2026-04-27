@@ -572,6 +572,38 @@ import type { FC } from 'react';
 	assert.Greater(t, importRefs, 0, "import statements should create unresolved references")
 }
 
+func TestSyncFiles(t *testing.T) {
+	dir := t.TempDir()
+	filePath := "sync_test.go"
+	absPath := filepath.Join(dir, filePath)
+
+	content := `package main
+func SyncHello() string { return "hello" }
+`
+	require.NoError(t, os.WriteFile(absPath, []byte(content), 0o644))
+
+	cfg := config.DefaultConfig()
+	cfg.RootDir = dir
+	cfg.Include = []string{"**/*.go"}
+	cfg.Exclude = []string{}
+
+	db := newMockDB()
+	orch := extraction.NewOrchestrator(cfg, db)
+
+	// Sync single changed file
+	result, err := orch.SyncFiles(context.Background(), []string{filePath})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.FilesProcessed)
+	assert.Equal(t, 0, result.FilesSkipped)
+	assert.Greater(t, result.NodesExtracted, 0)
+
+	// Sync same file again (unchanged hash) — should be skipped
+	result2, err := orch.SyncFiles(context.Background(), []string{filePath})
+	require.NoError(t, err)
+	assert.Equal(t, 0, result2.FilesProcessed)
+	assert.Equal(t, 1, result2.FilesSkipped)
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
