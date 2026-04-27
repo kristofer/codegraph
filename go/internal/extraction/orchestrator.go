@@ -129,8 +129,8 @@ func (o *Orchestrator) IndexAll(ctx context.Context) (*IndexResult, error) {
 		skipped  bool
 	}
 
-	workCh := make(chan work, len(files)+1)
-	outCh := make(chan outcome, len(files)+1)
+	workCh := make(chan work, len(files))
+	outCh := make(chan outcome, len(files))
 
 	for _, f := range files {
 		workCh <- work{path: f}
@@ -178,15 +178,39 @@ func (o *Orchestrator) IndexAll(ctx context.Context) (*IndexResult, error) {
 			result.NodesExtracted += len(out.res.Nodes)
 			result.EdgesExtracted += len(out.res.Edges)
 			if o.db != nil {
-				if delErr := o.db.DeleteNodesForFile(ctx, out.filePath); delErr == nil {
+				if delErr := o.db.DeleteNodesForFile(ctx, out.filePath); delErr != nil {
+					result.Errors = append(result.Errors, types.ExtractionError{
+						Message:  delErr.Error(),
+						FilePath: out.filePath,
+						Severity: types.SeverityError,
+					})
+				} else {
 					for _, n := range out.res.Nodes {
-						_ = o.db.UpsertNode(ctx, n)
+						if uErr := o.db.UpsertNode(ctx, n); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
 					}
 					for _, e := range out.res.Edges {
-						_ = o.db.UpsertEdge(ctx, e)
+						if uErr := o.db.UpsertEdge(ctx, e); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
 					}
 					for _, ref := range out.res.UnresolvedReferences {
-						_ = o.db.UpsertUnresolvedRef(ctx, ref)
+						if uErr := o.db.UpsertUnresolvedRef(ctx, ref); uErr != nil {
+							result.Errors = append(result.Errors, types.ExtractionError{
+								Message:  uErr.Error(),
+								FilePath: out.filePath,
+								Severity: types.SeverityWarning,
+							})
+						}
 					}
 				}
 			}

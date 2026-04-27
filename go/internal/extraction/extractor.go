@@ -21,6 +21,9 @@ func GetConfig(lang types.Language) *languages.LangConfig {
 }
 
 // generateNodeID creates a deterministic 16-character node ID.
+// The 16-character (64-bit) prefix matches the TypeScript implementation
+// (createHash('sha256').digest('hex').substring(0, 16)) and provides a
+// sufficiently low collision probability for typical codebases.
 func generateNodeID(filePath string, kind types.NodeKind, name string, line int) string {
 	h := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s:%d", filePath, kind, name, line)))
 	return hex.EncodeToString(h[:])[:16]
