@@ -40,11 +40,11 @@ func Open(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("db: open: %w", err)
 	}
 
-	// SQLite is single-writer; a connection pool > 1 causes "database is
-	// locked" under concurrent readers + one writer.  Keep one writer and
-	// a small reader pool.
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
+	// WAL mode (applied below via PRAGMA) supports multiple concurrent readers.
+	// We limit to a small pool: writes are serialised by WithTx, and a small
+	// pool prevents "database is locked" under bursty concurrent reads.
+	sqlDB.SetMaxOpenConns(4)
+	sqlDB.SetMaxIdleConns(2)
 	sqlDB.SetConnMaxLifetime(0)
 
 	db := &DB{sqlDB: sqlDB, dbPath: dbPath}
@@ -70,8 +70,8 @@ func OpenMemory() (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("db: open memory: %w", err)
 	}
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
+	sqlDB.SetMaxOpenConns(4)
+	sqlDB.SetMaxIdleConns(2)
 
 	db := &DB{sqlDB: sqlDB, dbPath: ":memory:"}
 

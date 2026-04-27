@@ -300,8 +300,16 @@ func (q *Queries) searchNodesFTS(query string, opts types.SearchOptions) ([]*typ
 		ftsLimit = 100
 	}
 
-	// Build FTS query: strip special chars, add prefix wildcard per term.
-	clean := strings.NewReplacer(`"`, ``, `'`, ``, `*`, ``, `(`, ``, `)`, ``, `:`, ``, `^`, ``).Replace(query)
+	// Build FTS query: strip FTS5 special characters then add a prefix wildcard
+	// to each term so "auth" matches "AuthService", "authenticate", etc.
+	// Characters removed: " ' * ( ) : ^ — these are FTS5 query operators and
+	// would cause a parse error if left in the user input string.
+	const fts5SpecialChars = `"'*():^`
+	replacePairs := make([]string, 0, len(fts5SpecialChars)*2)
+	for _, ch := range fts5SpecialChars {
+		replacePairs = append(replacePairs, string(ch), "")
+	}
+	clean := strings.NewReplacer(replacePairs...).Replace(query)
 	var ftsTerms []string
 	for _, term := range strings.Fields(clean) {
 		upper := strings.ToUpper(term)
@@ -330,7 +338,10 @@ func (q *Queries) searchNodesFTS(query string, opts types.SearchOptions) ([]*typ
 
 	rows, err := q.db.sqlDB.Query(sqlStr, args...)
 	if err != nil {
-		// FTS query parse error — silently return empty.
+		// An FTS5 parse error (e.g. unsupported syntax in the sanitized query)
+		// should degrade gracefully to the LIKE fallback rather than propagate
+		// an error to the caller.  Returning (nil, nil) signals "no FTS results"
+		// so SearchNodes will automatically retry with searchNodesLike.
 		return nil, nil //nolint:nilerr
 	}
 	defer rows.Close()
