@@ -413,6 +413,30 @@ type Subgraph struct {
 // Context / TaskContext
 // =============================================================================
 
+// SearchOptions holds options for searching the graph.
+type SearchOptions struct {
+	// Kinds filters results to specific node kinds.
+	Kinds []NodeKind `json:"kinds,omitempty"`
+
+	// Languages filters results to specific languages.
+	Languages []Language `json:"languages,omitempty"`
+
+	// IncludePatterns filters results to files matching these glob patterns.
+	IncludePatterns []string `json:"includePatterns,omitempty"`
+
+	// ExcludePatterns excludes files matching these glob patterns.
+	ExcludePatterns []string `json:"excludePatterns,omitempty"`
+
+	// Limit is the maximum number of results to return (default 100).
+	Limit int `json:"limit,omitempty"`
+
+	// Offset is the pagination offset.
+	Offset int `json:"offset,omitempty"`
+
+	// CaseSensitive controls whether the search is case-sensitive.
+	CaseSensitive bool `json:"caseSensitive,omitempty"`
+}
+
 // SearchResult is a search result with relevance scoring.
 type SearchResult struct {
 	// Node is the matching node.
@@ -424,6 +448,18 @@ type SearchResult struct {
 	// Highlights are matched text snippets for highlighting.
 	Highlights []string `json:"highlights,omitempty"`
 }
+
+// EdgeDirection controls which edges are returned relative to a node.
+type EdgeDirection int
+
+const (
+	// EdgeDirectionOutgoing returns edges where the node is the source.
+	EdgeDirectionOutgoing EdgeDirection = iota
+	// EdgeDirectionIncoming returns edges where the node is the target.
+	EdgeDirectionIncoming
+	// EdgeDirectionBoth returns all edges connected to the node.
+	EdgeDirectionBoth
+)
 
 // CodeBlock is a block of source code with its context.
 type CodeBlock struct {
