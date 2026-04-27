@@ -1,0 +1,35 @@
+# golangci-lint configuration
+# Docs: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  go: "1.24"
+
+linters:
+  enable:
+    - errcheck      # Check for unhandled errors
+    - govet         # Reports suspicious constructs
+    - staticcheck   # Comprehensive static analysis
+    - gofmt         # Enforces gofmt formatting
+    - goimports     # Enforces goimports ordering
+    - ineffassign   # Detects ineffectual assignments
+    - unused        # Reports unused code
+
+linters-settings:
+  errcheck:
+    # Don't report errors for fmt.Print* calls.
+    exclude-functions:
+      - fmt.Print
+      - fmt.Println
+      - fmt.Printf
+
+  govet:
+    enable-all: true
+
+issues:
+  exclude-rules:
+    # Allow shadowing in test files for readability.
+    - path: "_test\\.go"
+      linters:
+        - govet
+      text: "shadow"
