@@ -6,7 +6,6 @@
  * are compiled, keeping V8 WASM memory pressure low on large codebases.
  */
 
-import * as path from 'path';
 import { Parser, Language as WasmLanguage } from 'web-tree-sitter';
 import { Language } from '../types';
 
@@ -33,7 +32,6 @@ const WASM_GRAMMAR_FILES: Record<GrammarLanguage, string> = {
   swift: 'tree-sitter-swift.wasm',
   kotlin: 'tree-sitter-kotlin.wasm',
   dart: 'tree-sitter-dart.wasm',
-  pascal: 'tree-sitter-pascal.wasm',
 };
 
 /**
@@ -68,12 +66,6 @@ export const EXTENSION_MAP: Record<string, Language> = {
   '.dart': 'dart',
   '.liquid': 'liquid',
   '.svelte': 'svelte',
-  '.pas': 'pascal',
-  '.dpr': 'pascal',
-  '.dpk': 'pascal',
-  '.lpr': 'pascal',
-  '.dfm': 'pascal',
-  '.fmx': 'pascal',
 };
 
 /**
@@ -122,9 +114,7 @@ export async function loadGrammarsForLanguages(languages: Language[]): Promise<v
     const wasmFile = WASM_GRAMMAR_FILES[lang];
     try {
       // Pascal ships its own WASM (not in tree-sitter-wasms)
-      const wasmPath = lang === 'pascal'
-        ? path.join(__dirname, 'wasm', wasmFile)
-        : require.resolve(`tree-sitter-wasms/out/${wasmFile}`);
+      const wasmPath = require.resolve(`tree-sitter-wasms/out/${wasmFile}`);
       const language = await WasmLanguage.load(wasmPath);
       languageCache.set(lang, language);
     } catch (error) {
@@ -283,7 +273,6 @@ export function getLanguageDisplayName(language: Language): string {
     dart: 'Dart',
     svelte: 'Svelte',
     liquid: 'Liquid',
-    pascal: 'Pascal / Delphi',
     unknown: 'Unknown',
   };
   return names[language] || language;

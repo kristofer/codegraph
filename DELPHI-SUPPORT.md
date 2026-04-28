@@ -1,14 +1,22 @@
-# Pascal / Delphi Support for CodeGraph
+# Pascal / Delphi Support — ⚠️ REMOVED
 
-## Why Delphi?
+> **Deprecation Notice (v0.8):** Pascal / Delphi support has been removed from CodeGraph.
+> CodeGraph now focuses on popular Unix/Linux and cross-platform languages (Go, Python, Java, C,
+> C++, TypeScript, JavaScript, Rust, PHP, Ruby, Swift, Kotlin, Dart, C#, Svelte, Liquid).
+>
+> The `tree-sitter-pascal` grammar dependency, all Pascal-specific extraction code (`pascal.ts`,
+> `dfm-extractor.ts`), the bundled `tree-sitter-pascal.wasm` file, and all Pascal/Delphi
+> configuration have been removed.  The `Language` type no longer includes `'pascal'`.
+>
+> If you need Pascal / Delphi support, please open a feature request on GitHub.
 
-Delphi (Object Pascal) remains one of the most widely used languages for Windows desktop and enterprise applications. With an estimated **1.5–3 million active developers** and a strong presence in industries like healthcare, finance, logistics, and government, Delphi projects often involve large, long-lived codebases that benefit significantly from semantic code intelligence.
+---
 
-Many Delphi codebases have grown over decades — making structural understanding, impact analysis, and cross-file navigation exactly the kind of tooling gap CodeGraph is designed to fill.
+## Historical Notes
 
-Adding Delphi support positions CodeGraph as a uniquely valuable tool for a community that has historically been underserved by modern static analysis and AI-assisted development tools.
+The following documents what was implemented in the now-removed Pascal/Delphi feature.
 
-## What Was Implemented
+
 
 ### Pascal / Object Pascal (tree-sitter)
 

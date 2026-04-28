@@ -83,32 +83,6 @@ const GO_BUILT_INS = new Set([
   'string', 'bool', 'byte', 'rune', 'any',
 ]);
 
-const PASCAL_UNIT_PREFIXES = [
-  'System.', 'Winapi.', 'Vcl.', 'Fmx.', 'Data.', 'Datasnap.',
-  'Soap.', 'Xml.', 'Web.', 'REST.', 'FireDAC.', 'IBX.',
-  'IdHTTP', 'IdTCP', 'IdSSL',
-];
-
-const PASCAL_BUILT_INS = new Set([
-  'System', 'SysUtils', 'Classes', 'Types', 'Variants', 'StrUtils',
-  'Math', 'DateUtils', 'IOUtils', 'Generics.Collections', 'Generics.Defaults',
-  'Rtti', 'TypInfo', 'SyncObjs', 'RegularExpressions',
-  'SysInit', 'Windows', 'Messages', 'Graphics', 'Controls', 'Forms',
-  'Dialogs', 'StdCtrls', 'ExtCtrls', 'ComCtrls', 'Menus', 'ActnList',
-  'WriteLn', 'Write', 'ReadLn', 'Read', 'Inc', 'Dec', 'Ord', 'Chr',
-  'Length', 'SetLength', 'High', 'Low', 'Assigned', 'FreeAndNil',
-  'Format', 'IntToStr', 'StrToInt', 'FloatToStr', 'StrToFloat',
-  'Trim', 'UpperCase', 'LowerCase', 'Pos', 'Copy', 'Delete', 'Insert',
-  'Now', 'Date', 'Time', 'DateToStr', 'StrToDate',
-  'Raise', 'Exit', 'Break', 'Continue', 'Abort',
-  'True', 'False', 'nil', 'Self', 'Result',
-  'Create', 'Destroy', 'Free',
-  'TObject', 'TComponent', 'TPersistent', 'TInterfacedObject',
-  'TList', 'TStringList', 'TStrings', 'TStream', 'TMemoryStream', 'TFileStream',
-  'Exception', 'EAbort', 'EConvertError', 'EAccessViolation',
-  'IInterface', 'IUnknown',
-]);
-
 /**
  * Reference Resolver
  *
@@ -642,16 +616,6 @@ export class ReferenceResolver {
         }
       }
       if (GO_BUILT_INS.has(name)) {
-        return true;
-      }
-    }
-
-    // Pascal/Delphi built-ins and standard library units
-    if (ref.language === 'pascal') {
-      if (PASCAL_UNIT_PREFIXES.some((p) => name.startsWith(p))) {
-        return true;
-      }
-      if (PASCAL_BUILT_INS.has(name)) {
         return true;
       }
     }
