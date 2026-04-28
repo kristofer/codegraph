@@ -74,7 +74,6 @@ export type Language =
   | 'dart'
   | 'svelte'
   | 'liquid'
-  | 'pascal'
   | 'unknown';
 
 // =============================================================================
@@ -520,13 +519,6 @@ export const DEFAULT_CONFIG: CodeGraphConfig = {
     '**/*.svelte',
     // Liquid (Shopify themes)
     '**/*.liquid',
-    // Pascal / Delphi
-    '**/*.pas',
-    '**/*.dpr',
-    '**/*.dpk',
-    '**/*.lpr',
-    '**/*.dfm',
-    '**/*.fmx',
   ],
   exclude: [
     // Version control
@@ -632,11 +624,6 @@ export const DEFAULT_CONFIG: CodeGraphConfig = {
     '**/xcuserdata/**',
     '**/Carthage/Build/**',
     '**/SourcePackages/**',
-
-    // Delphi/Pascal
-    '**/__history/**',
-    '**/__recovery/**',
-    '**/*.dcu',
 
     // PHP
     '**/.composer/**',

@@ -1593,24 +1593,26 @@ my-project/
 - [ ] Output size management
 
 ### Phase 7: Sync & Freshness (Week 4)
-- [ ] Content hashing for change detection
-- [ ] Incremental reindexing
-- [ ] Git hook installation
-- [ ] Post-commit handler
+- [x] Content hashing for change detection
+- [x] Incremental reindexing
+- [x] Git hook installation (superseded by Claude Code hooks integration — `codegraph sync` is called via `.claude/settings.json` hooks)
+- [x] Post-commit handler (superseded by Claude Code hooks integration)
 
 ### Phase 8: Additional Languages (Week 4+)
-- [ ] Swift extraction queries
-- [ ] Kotlin extraction queries
-- [ ] Java extraction queries
-- [ ] Liquid/Shopify patterns
-- [ ] Ruby/Rails patterns
+- [x] Swift extraction queries
+- [x] Kotlin extraction queries
+- [x] Java extraction queries
+- [x] Liquid/Shopify patterns
+- [x] Ruby/Rails patterns
+- [x] C, C++, C#, Go, Rust, PHP, Dart, Svelte extraction
+- ~~Pascal/Delphi~~ — removed (see DELPHI-SUPPORT.md)
 
 ### Phase 9: Polish & Hardening (Week 5)
-- [ ] Error handling and recovery
-- [ ] Performance optimization
-- [ ] Memory management for large codebases
-- [ ] Concurrent indexing safety
-- [ ] API documentation and JSDoc comments
+- [x] Error handling and recovery (custom error classes, per-file error isolation)
+- [x] Performance optimization (worker thread recycling, parallel I/O, debounced sync)
+- [x] Memory management for large codebases (WASM worker recycling every 250 files)
+- [x] Concurrent indexing safety (Mutex + FileLock in utils.ts)
+- [x] API documentation and JSDoc comments
 
 ### Phase 10: CLI (Week 5-6, Optional)
 - [ ] CLI argument parsing (commander or yargs)
