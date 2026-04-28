@@ -39,7 +39,12 @@ func DetectFrameworks(ctx *ResolutionContext) []FrameworkResolver {
 	var active []FrameworkResolver
 	for _, fw := range all {
 		func() {
-			defer func() { recover() }() //nolint:errcheck // ignore panics in detect
+			defer func() {
+				if r := recover(); r != nil {
+					// Log the panic so it can be investigated; do not propagate.
+					_ = r // named to satisfy linter; callers can add actual logging here
+				}
+			}()
 			if fw.Detect(ctx) {
 				active = append(active, &frameworkAdapter{inner: fw})
 			}

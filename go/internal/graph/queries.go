@@ -436,7 +436,7 @@ func globMatch(pattern, s string) bool {
 	if suffix == "" {
 		return true
 	}
-	return strings.Contains(rest, suffix) || strings.HasSuffix(rest, suffix)
+	return strings.Contains(rest, suffix)
 }
 
 // ===========================================================================

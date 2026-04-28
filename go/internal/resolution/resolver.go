@@ -212,9 +212,11 @@ func (ctx *ResolutionContext) HasAnyPossibleMatch(name string) bool {
 		if ctx.knownNames[receiver] || ctx.knownNames[member] {
 			return true
 		}
-		cap := strings.ToUpper(receiver[:1]) + receiver[1:]
-		if ctx.knownNames[cap] {
-			return true
+		if len(receiver) > 0 {
+			cap := strings.ToUpper(receiver[:1]) + receiver[1:]
+			if ctx.knownNames[cap] {
+				return true
+			}
 		}
 	}
 	if colonIdx := strings.Index(name, "::"); colonIdx > 0 {

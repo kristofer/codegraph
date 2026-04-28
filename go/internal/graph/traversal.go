@@ -329,9 +329,7 @@ func (t *GraphTraverser) FindPath(fromID, toID string, edgeKinds []types.EdgeKin
 		}
 		for _, e := range outgoing {
 			if !visited[e.Target] {
-				newPath := make([]string, len(cur.path)+1)
-				copy(newPath, cur.path)
-				newPath[len(cur.path)] = e.Target
+				newPath := append(append([]string(nil), cur.path...), e.Target)
 				queue = append(queue, pathEntry{nodeID: e.Target, path: newPath})
 			}
 		}
