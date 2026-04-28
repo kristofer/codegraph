@@ -655,3 +655,113 @@ func BenchmarkBatchUpsert(b *testing.B) {
 	}
 	b.ReportAllocs()
 }
+
+// ===========================================================================
+// TestGetNodesByName / GetNodesByLowerName / GetNodesByKind /
+// GetNodesByQualifiedName / GetAllNodeNames / DeleteSpecificResolvedRefs
+// ===========================================================================
+
+func TestGetNodesByNameQueries(t *testing.T) {
+	d := openTestDB(t)
+	q := NewQueries(d)
+
+	nodes := []*types.Node{
+		sampleNode("fn1", "helperA", "src/a.ts", types.NodeKindFunction),
+		sampleNode("fn2", "helperA", "src/b.ts", types.NodeKindMethod),  // duplicate name
+		sampleNode("cls1", "MyClass", "src/c.ts", types.NodeKindClass),
+	}
+	require.NoError(t, q.UpsertNodes(nodes))
+
+	t.Run("GetNodesByName exact", func(t *testing.T) {
+		got, err := q.GetNodesByName("helperA")
+		require.NoError(t, err)
+		assert.Len(t, got, 2)
+	})
+
+	t.Run("GetNodesByName no match", func(t *testing.T) {
+		got, err := q.GetNodesByName("nonexistent")
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("GetNodesByLowerName case-insensitive", func(t *testing.T) {
+		got, err := q.GetNodesByLowerName("myclass")
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, "cls1", got[0].ID)
+	})
+
+	t.Run("GetNodesByKind", func(t *testing.T) {
+		got, err := q.GetNodesByKind(types.NodeKindFunction)
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, "fn1", got[0].ID)
+	})
+
+	t.Run("GetNodesByQualifiedName", func(t *testing.T) {
+		got, err := q.GetNodesByQualifiedName("src/c.ts::MyClass")
+		require.NoError(t, err)
+		require.Len(t, got, 1)
+		assert.Equal(t, "cls1", got[0].ID)
+	})
+
+	t.Run("GetAllNodeNames", func(t *testing.T) {
+		names, err := q.GetAllNodeNames()
+		require.NoError(t, err)
+		nameSet := make(map[string]bool, len(names))
+		for _, n := range names {
+			nameSet[n] = true
+		}
+		assert.True(t, nameSet["helperA"])
+		assert.True(t, nameSet["MyClass"])
+	})
+}
+
+func TestDeleteSpecificResolvedRefs(t *testing.T) {
+	d := openTestDB(t)
+	q := NewQueries(d)
+
+	n := sampleNode("fn1", "myFunc", "src/a.ts", types.NodeKindFunction)
+	require.NoError(t, q.UpsertNode(n))
+
+	refs := []*types.UnresolvedReference{
+		{
+			FromNodeID:    "fn1",
+			ReferenceName: "helper",
+			ReferenceKind: types.EdgeKindCalls,
+			Line:          1,
+			Column:        1,
+			FilePath:      "src/a.ts",
+			Language:      types.TypeScript,
+		},
+		{
+			FromNodeID:    "fn1",
+			ReferenceName: "other",
+			ReferenceKind: types.EdgeKindCalls,
+			Line:          2,
+			Column:        1,
+			FilePath:      "src/a.ts",
+			Language:      types.TypeScript,
+		},
+	}
+	require.NoError(t, q.InsertUnresolvedRefsBatch(refs))
+
+	count, err := q.GetUnresolvedRefsCount()
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	// Delete only the first ref
+	require.NoError(t, q.DeleteSpecificResolvedRefs([]ResolvedRefKey{
+		{FromNodeID: "fn1", ReferenceName: "helper", ReferenceKind: types.EdgeKindCalls},
+	}))
+
+	count, err = q.GetUnresolvedRefsCount()
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "only one ref should remain after deleting 'helper'")
+
+	// Remaining ref should be "other"
+	remaining, err := q.GetAllUnresolvedRefs()
+	require.NoError(t, err)
+	require.Len(t, remaining, 1)
+	assert.Equal(t, "other", remaining[0].ReferenceName)
+}
