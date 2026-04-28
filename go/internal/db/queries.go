@@ -239,6 +239,99 @@ func (q *Queries) DeleteNode(id string) error {
 	return nil
 }
 
+// GetNodesByName returns all nodes whose simple name matches name exactly.
+func (q *Queries) GetNodesByName(name string) ([]*types.Node, error) {
+	rows, err := q.db.sqlDB.Query(
+		"SELECT "+nodeColumns+" FROM nodes WHERE name = ?", name,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("db: GetNodesByName: %w", err)
+	}
+	return collectNodes(rows)
+}
+
+// GetNodesByLowerName returns all nodes whose lowercased name matches lowerName.
+func (q *Queries) GetNodesByLowerName(lowerName string) ([]*types.Node, error) {
+	rows, err := q.db.sqlDB.Query(
+		"SELECT "+nodeColumns+" FROM nodes WHERE lower(name) = ?", lowerName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("db: GetNodesByLowerName: %w", err)
+	}
+	return collectNodes(rows)
+}
+
+// GetNodesByKind returns all nodes of the given kind.
+func (q *Queries) GetNodesByKind(kind types.NodeKind) ([]*types.Node, error) {
+	rows, err := q.db.sqlDB.Query(
+		"SELECT "+nodeColumns+" FROM nodes WHERE kind = ?", string(kind),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("db: GetNodesByKind: %w", err)
+	}
+	return collectNodes(rows)
+}
+
+// GetNodesByQualifiedName returns nodes whose qualified_name matches exactly.
+func (q *Queries) GetNodesByQualifiedName(qualifiedName string) ([]*types.Node, error) {
+	rows, err := q.db.sqlDB.Query(
+		"SELECT "+nodeColumns+" FROM nodes WHERE qualified_name = ?", qualifiedName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("db: GetNodesByQualifiedName: %w", err)
+	}
+	return collectNodes(rows)
+}
+
+// GetAllNodeNames returns the distinct set of simple names stored in the nodes table.
+// This is used for fast pre-filtering in the resolution layer.
+func (q *Queries) GetAllNodeNames() ([]string, error) {
+	rows, err := q.db.sqlDB.Query("SELECT DISTINCT name FROM nodes")
+	if err != nil {
+		return nil, fmt.Errorf("db: GetAllNodeNames: %w", err)
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("db: GetAllNodeNames scan: %w", err)
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
+// ResolvedRefKey identifies a specific unresolved reference for deletion.
+type ResolvedRefKey struct {
+	FromNodeID    string
+	ReferenceName string
+	ReferenceKind types.EdgeKind
+}
+
+// DeleteSpecificResolvedRefs removes specific entries from the unresolved_refs table.
+// It is called after resolution to clean up refs that have been handled.
+func (q *Queries) DeleteSpecificResolvedRefs(refs []ResolvedRefKey) error {
+	if len(refs) == 0 {
+		return nil
+	}
+	return q.db.WithTx(func(tx *sql.Tx) error {
+		stmt, err := tx.Prepare(
+			"DELETE FROM unresolved_refs WHERE from_node_id = ? AND reference_name = ? AND reference_kind = ?",
+		)
+		if err != nil {
+			return fmt.Errorf("db: DeleteSpecificResolvedRefs prepare: %w", err)
+		}
+		defer stmt.Close()
+		for _, r := range refs {
+			if _, err := stmt.Exec(r.FromNodeID, r.ReferenceName, string(r.ReferenceKind)); err != nil {
+				return fmt.Errorf("db: DeleteSpecificResolvedRefs exec: %w", err)
+			}
+		}
+		return nil
+	})
+}
+
 func collectNodes(rows *sql.Rows) ([]*types.Node, error) {
 	defer rows.Close()
 	var nodes []*types.Node
