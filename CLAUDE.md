@@ -119,6 +119,101 @@ codegraph hooks install     # Install git auto-sync
 codegraph serve --mcp       # Start MCP server
 ```
 
+## Connecting to the MCP Server
+
+The CodeGraph MCP server uses **stdio transport** — the client spawns the server as a child process and communicates over stdin/stdout. There is no TCP port or HTTP endpoint to connect to.
+
+### Quickest setup — interactive installer
+
+```bash
+npx @colbymchenry/codegraph
+```
+
+This installs `codegraph` globally and writes the MCP configuration to `~/.claude.json` automatically.
+
+### Manual setup — Claude Code
+
+Add the following entry to `~/.claude.json` (global) or `.claude.json` (project-local):
+
+```json
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+```
+
+Then **restart Claude Code** so it picks up the new server.
+
+### Manual setup — Cursor
+
+Open **Settings → MCP** (or edit `~/.cursor/mcp.json`) and add:
+
+```json
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+```
+
+### Manual setup — Windsurf
+
+Edit `~/.codeium/windsurf/mcp_config.json` and add:
+
+```json
+{
+  "mcpServers": {
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+```
+
+### Manual setup — VS Code (GitHub Copilot)
+
+Add to your VS Code `settings.json`:
+
+```json
+{
+  "github.copilot.chat.mcp.servers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": ["serve", "--mcp"]
+    }
+  }
+}
+```
+
+### Verifying the server starts
+
+Run the server manually to confirm it works before configuring your client:
+
+```bash
+codegraph serve --mcp
+```
+
+The server reads JSON-RPC messages from stdin and writes responses to stdout. Diagnostic log lines are sent to **stderr** so they don't interfere with the protocol.
+
+### Project initialization
+
+After connecting, initialize your project so the server has a graph to query:
+
+```bash
+cd your-project
+codegraph init -i   # initialize and index in one step
+```
+
 ## MCP Tools Best Practices
 
 Use these tools **directly in the main session** for fast code exploration (replaces the need for Explore agents in most cases):
